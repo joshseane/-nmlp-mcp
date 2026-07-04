@@ -1,10 +1,15 @@
-# NMLP MCP is a HOSTED, remote server (Streamable HTTP) at:
-#   https://newmexicoliteracyproject.org/api/mcp
-# There is nothing to install to use it — point any MCP client at that URL.
+# NMLP MCP server — local stdio build.
 #
-# This Dockerfile exists only so directory crawlers (e.g. Glama) can "start the server
-# and respond to introspection requests": it runs mcp-remote as a stdio<->HTTP bridge to
-# the live hosted endpoint, so initialize / tools/list resolve to the real 12 tools.
+# Builds and runs the standalone Node MCP server (index.js) in-container and
+# speaks MCP over stdio, so MCP clients and directory crawlers (e.g. Glama) can
+# start it and introspect the real 12 tools. tools/list is served entirely from
+# local code; the reference-data tools fetch the NMLP public CC-BY JSON API at
+# call time. (A hosted HTTP twin also runs at
+# https://newmexicoliteracyproject.org/api/mcp.)
 FROM node:20-alpine
 RUN apk add --no-cache dumb-init
-ENTRYPOINT ["dumb-init", "npx", "-y", "mcp-remote", "https://newmexicoliteracyproject.org/api/mcp"]
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY . .
+ENTRYPOINT ["dumb-init", "node", "index.js"]

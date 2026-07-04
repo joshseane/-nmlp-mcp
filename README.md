@@ -1,13 +1,14 @@
 # New Mexico Literacy Project — MCP Server
 
-A hosted [Model Context Protocol](https://modelcontextprotocol.io) server for **antiquarian first-edition identification** and **New Mexico book-donation logistics**, run by the [New Mexico Literacy Project](https://newmexicoliteracyproject.org).
+A [Model Context Protocol](https://modelcontextprotocol.io) server for **antiquarian first-edition identification** and **New Mexico book-donation logistics**, run by the [New Mexico Literacy Project](https://newmexicoliteracyproject.org). Run it **locally over stdio** (`index.js`, this repo) or connect to the **hosted HTTP twin**.
 
+- **Local (stdio):** `npx nmlp-mcp` — a standalone Node MCP server; no account, no key
 - **Hosted endpoint (Streamable HTTP):** `https://newmexicoliteracyproject.org/api/mcp`
 - **Auth:** none (public)
 - **Official MCP registry:** [`org.newmexicoliteracyproject/nmlp-mcp`](https://registry.modelcontextprotocol.io/v0/servers?search=org.newmexicoliteracyproject/nmlp-mcp)
 - **License:** code MIT (this repo); data [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
-It's a remote server — you don't install it, you connect to the URL above. The code here is the exact Cloudflare Pages Function that serves it (`functions/api/mcp.js`), published for transparency and review.
+The two share one codebase and one dataset: `index.js` is the local stdio server, and `functions/api/mcp.js` is the exact Cloudflare Pages Function that serves the hosted HTTP twin. `tools/list` is served entirely from local code; the reference-data tools read the site's public open-data JSON API at call time (single source of truth), while `nmlp_decode_number_line` runs fully offline.
 
 ## Tools (12)
 
@@ -37,7 +38,36 @@ Every identification response returns a CC-BY citation with the dataset DOI, so 
 
 ## Connect
 
-Point any MCP client at the remote URL. For clients that speak Streamable HTTP directly (e.g. via a `url` transport):
+### Local (stdio) — recommended for Claude Desktop, Cursor, Continue.dev
+
+Runs the server on your machine over stdio. Requires Node 18+.
+
+```json
+{
+  "mcpServers": {
+    "nmlp": { "command": "npx", "args": ["-y", "nmlp-mcp"] }
+  }
+}
+```
+
+Or clone and run directly:
+
+```bash
+git clone https://github.com/joshseane/-nmlp-mcp && cd -nmlp-mcp
+npm install
+node index.js      # speaks MCP over stdio
+```
+
+### Docker
+
+```bash
+docker build -t nmlp-mcp .
+docker run --rm -i nmlp-mcp      # stdio server
+```
+
+### Hosted (Streamable HTTP)
+
+For clients that speak Streamable HTTP directly, point them at the URL — nothing to install:
 
 ```json
 {
@@ -47,17 +77,7 @@ Point any MCP client at the remote URL. For clients that speak Streamable HTTP d
 }
 ```
 
-For stdio-only clients, bridge with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
-
-```json
-{
-  "mcpServers": {
-    "nmlp": { "command": "npx", "args": ["-y", "mcp-remote", "https://newmexicoliteracyproject.org/api/mcp"] }
-  }
-}
-```
-
-Quick check:
+Quick check of the hosted twin:
 
 ```bash
 curl -s -X POST https://newmexicoliteracyproject.org/api/mcp \
@@ -65,9 +85,12 @@ curl -s -X POST https://newmexicoliteracyproject.org/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-## Deployment
+## How it works
 
-`functions/api/mcp.js` is a [Cloudflare Pages Function](https://developers.cloudflare.com/pages/functions/). It speaks JSON-RPC 2.0 over HTTP POST (Streamable HTTP), supports `initialize` / `tools/list` / `tools/call` / `ping` / notifications, CORS, and batch requests, and wraps the site's public open-data APIs (`/api/checker-*.json`, `/api/points.json`, etc.). No credentials or secrets are required or included.
+- **`index.js`** — the standalone local server. Uses `@modelcontextprotocol/sdk` over `StdioServerTransport`; supports `initialize` / `tools/list` / `tools/call`. Its only dependency is the MCP SDK.
+- **`functions/api/mcp.js`** — the hosted twin, a [Cloudflare Pages Function](https://developers.cloudflare.com/pages/functions/) speaking JSON-RPC 2.0 over HTTP POST (Streamable HTTP) with `ping` / notifications / CORS / batch support.
+
+Both wrap the site's public open-data APIs (`/api/checker-*.json`, `/api/points.json`, etc.). No credentials or secrets are required or included.
 
 ## Links
 
