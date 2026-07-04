@@ -1,0 +1,29 @@
+name: smoke
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 12 * * 1"   # weekly liveness check of the hosted endpoint
+  workflow_dispatch:
+jobs:
+  live-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: initialize handshake
+        run: |
+          curl -sf -X POST https://newmexicoliteracyproject.org/api/mcp \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            | grep -q '"nmlp-mcp"'
+      - name: tools/list returns the first-edition tools
+        run: |
+          curl -sf -X POST https://newmexicoliteracyproject.org/api/mcp \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+            | grep -q 'nmlp_identify_first_edition'
+      - name: tools/call identifies a known first edition
+        run: |
+          curl -sf -X POST https://newmexicoliteracyproject.org/api/mcp \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"nmlp_identify_first_edition","arguments":{"title":"The Great Gatsby"}}}' \
+            | grep -q "Scribner"

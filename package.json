@@ -1,0 +1,35 @@
+{
+  "name": "nmlp-mcp",
+  "version": "0.2.0",
+  "description": "Hosted MCP server for antiquarian first-edition identification and New Mexico book-donation logistics. 12 tools over a CC-BY, DOI-cited dataset.",
+  "license": "MIT",
+  "author": "Josh Eldred <jseldred@gmail.com>",
+  "homepage": "https://newmexicoliteracyproject.org/first-editions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joshseane/-nmlp-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/joshseane/-nmlp-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "first-edition",
+    "book-collecting",
+    "points-of-issue",
+    "antiquarian-books",
+    "bibliography",
+    "cloudflare-pages",
+    "new-mexico"
+  ],
+  "type": "module",
+  "scripts": {
+    "smoke": "curl -sf -X POST https://newmexicoliteracyproject.org/api/mcp -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}' | grep -q nmlp_identify_first_edition"
+  },
+  "mcp": {
+    "type": "remote",
+    "transport": "streamable-http",
+    "url": "https://newmexicoliteracyproject.org/api/mcp"
+  }
+}
