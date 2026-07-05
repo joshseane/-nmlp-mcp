@@ -2,7 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server for **antiquarian first-edition identification** and **New Mexico book-donation logistics**, run by the [New Mexico Literacy Project](https://newmexicoliteracyproject.org). Run it **locally over stdio** (`index.js`, this repo) or connect to the **hosted HTTP twin**.
 
-- **Local (stdio):** `npx nmlp-mcp` — a standalone Node MCP server; no account, no key
+- **Local (stdio):** `npx -y github:joshseane/-nmlp-mcp` — a standalone Node MCP server; no account, no key
 - **Hosted endpoint (Streamable HTTP):** `https://newmexicoliteracyproject.org/api/mcp`
 - **Auth:** none (public)
 - **Official MCP registry:** [`org.newmexicoliteracyproject/nmlp-mcp`](https://registry.modelcontextprotocol.io/v0/servers?search=org.newmexicoliteracyproject/nmlp-mcp)
@@ -45,7 +45,7 @@ Runs the server on your machine over stdio. Requires Node 18+.
 ```json
 {
   "mcpServers": {
-    "nmlp": { "command": "npx", "args": ["-y", "nmlp-mcp"] }
+    "nmlp": { "command": "npx", "args": ["-y", "github:joshseane/-nmlp-mcp"] }
   }
 }
 ```
