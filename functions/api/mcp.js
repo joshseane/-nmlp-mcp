@@ -298,7 +298,7 @@ async function handleMcpRequest(body) {
         capabilities: { tools: {} },
         serverInfo: {
           name: "nmlp-mcp",
-          version: "0.2.0",
+          version: "0.3.0",
           description: "MCP server for the New Mexico Literacy Project. First-edition identification — points of issue, number-line decoding, and publisher rules for 6,700+ verified titles / 850+ publishers (CC BY 4.0, DOI " + DATASET_DOI + ") — plus the Albuquerque book-donation API (ZIP coverage + free-pickup booking). Hosted at /api/mcp."
         }
       });
@@ -331,7 +331,7 @@ export async function onRequest(context) {
   if (request.method === "GET") {
     return new Response(JSON.stringify({
       name: "nmlp-mcp",
-      version: "0.2.0",
+      version: "0.3.0",
       description: "Model Context Protocol HTTP endpoint for the New Mexico Literacy Project — first-edition identification (points of issue, number-line decoding, publisher rules) plus the Albuquerque book-donation API.",
       transport: "JSON-RPC over HTTP POST (MCP 2024-11-05)",
       docs: "https://newmexicoliteracyproject.org/agents/mcp",
