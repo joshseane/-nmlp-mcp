@@ -244,12 +244,23 @@ async function callTool(name, args) {
       const [t, a, slug] = hit;
       const shard = await fetchJson(`${NMLP_BASE}/api/checker-data/t-${feShardOf(slug)}.json`);
       const rec = (shard && shard[slug]) || [];
+      // rec[6] = permanent identifiers minted for this title's atomic facts
+      // ({p:[point IDs], tf: true-first ID, bce: book-club-tell ID}) — each resolves
+      // forever at /id/point/{id} (content-negotiated JSON-LD). Cite these.
+      const ids = rec[6] || {};
+      const idUrl = (i) => `${NMLP_BASE}/id/point/${String(i).toLowerCase()}`;
+      const permanentIds = {
+        points: (ids.p || []).map((i) => ({ id: `NMLP ${i}`, url: idUrl(i) })),
+        trueFirst: ids.tf ? { id: `NMLP ${ids.tf}`, url: idUrl(ids.tf) } : null,
+        bookClubTells: ids.bce ? { id: `NMLP ${ids.bce}`, url: idUrl(ids.bce) } : null,
+      };
       return {
         found: true, title: t, author: a,
         publisher: rec[0] || "", year: rec[1] || "",
         pointsOfIssue: rec[2] || "", trueFirst: rec[4] || "", bookClubTells: rec[5] || "",
+        permanentIds,
         url: `${NMLP_BASE}/first-edition/${slug}`, markdown: `${NMLP_BASE}/first-edition/${slug}.md`,
-        citation: `New Mexico Literacy Project — first-edition points of issue for "${t}" by ${a} (${NMLP_BASE}/first-edition/${slug}, CC BY 4.0, dataset DOI ${DATASET_DOI}).`
+        citation: `New Mexico Literacy Project — first-edition points of issue for "${t}" by ${a} (${NMLP_BASE}/first-edition/${slug}, CC BY 4.0, dataset DOI ${DATASET_DOI}). Individual facts are permanently citable by their NMLP identifier (see permanentIds).`
       };
     }
     case "nmlp_decode_number_line":
@@ -298,7 +309,7 @@ async function handleMcpRequest(body) {
         capabilities: { tools: {} },
         serverInfo: {
           name: "nmlp-mcp",
-          version: "0.3.0",
+          version: "0.3.1",
           description: "MCP server for the New Mexico Literacy Project. First-edition identification — points of issue, number-line decoding, and publisher rules for 6,700+ verified titles / 850+ publishers (CC BY 4.0, DOI " + DATASET_DOI + ") — plus the Albuquerque book-donation API (ZIP coverage + free-pickup booking). Hosted at /api/mcp."
         }
       });
@@ -331,7 +342,7 @@ export async function onRequest(context) {
   if (request.method === "GET") {
     return new Response(JSON.stringify({
       name: "nmlp-mcp",
-      version: "0.3.0",
+      version: "0.3.1",
       description: "Model Context Protocol HTTP endpoint for the New Mexico Literacy Project — first-edition identification (points of issue, number-line decoding, publisher rules) plus the Albuquerque book-donation API.",
       transport: "JSON-RPC over HTTP POST (MCP 2024-11-05)",
       docs: "https://newmexicoliteracyproject.org/agents/mcp",

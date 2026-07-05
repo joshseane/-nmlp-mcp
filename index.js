@@ -23,7 +23,7 @@ import {
 
 const NMLP_BASE = "https://newmexicoliteracyproject.org";
 const DATASET_DOI = "10.5281/zenodo.21184548"; // Canonical First-Edition Points of Issue (concept DOI, CC BY 4.0)
-const VERSION = "0.3.0";
+const VERSION = "0.3.1";
 
 // --- first-edition identification helpers (wrap the checker index + shards) ---
 function feNorm(s) { return (s || "").toLowerCase().replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]/g, ""); }
@@ -249,12 +249,23 @@ async function callTool(name, args) {
       const [t, a, slug] = hit;
       const shard = await fetchJson(`${NMLP_BASE}/api/checker-data/t-${feShardOf(slug)}.json`);
       const rec = (shard && shard[slug]) || [];
+      // rec[6] = permanent identifiers minted for this title's atomic facts
+      // ({p:[point IDs], tf: true-first ID, bce: book-club-tell ID}) — each resolves
+      // forever at /id/point/{id} (content-negotiated JSON-LD). Cite these.
+      const ids = rec[6] || {};
+      const idUrl = (i) => `${NMLP_BASE}/id/point/${String(i).toLowerCase()}`;
+      const permanentIds = {
+        points: (ids.p || []).map((i) => ({ id: `NMLP ${i}`, url: idUrl(i) })),
+        trueFirst: ids.tf ? { id: `NMLP ${ids.tf}`, url: idUrl(ids.tf) } : null,
+        bookClubTells: ids.bce ? { id: `NMLP ${ids.bce}`, url: idUrl(ids.bce) } : null,
+      };
       return {
         found: true, title: t, author: a,
         publisher: rec[0] || "", year: rec[1] || "",
         pointsOfIssue: rec[2] || "", trueFirst: rec[4] || "", bookClubTells: rec[5] || "",
+        permanentIds,
         url: `${NMLP_BASE}/first-edition/${slug}`, markdown: `${NMLP_BASE}/first-edition/${slug}.md`,
-        citation: `New Mexico Literacy Project — first-edition points of issue for "${t}" by ${a} (${NMLP_BASE}/first-edition/${slug}, CC BY 4.0, dataset DOI ${DATASET_DOI}).`
+        citation: `New Mexico Literacy Project — first-edition points of issue for "${t}" by ${a} (${NMLP_BASE}/first-edition/${slug}, CC BY 4.0, dataset DOI ${DATASET_DOI}). Individual facts are permanently citable by their NMLP identifier (see permanentIds).`
       };
     }
     case "nmlp_decode_number_line":
