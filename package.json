@@ -1,6 +1,6 @@
 {
   "name": "nmlp-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Local + hosted MCP server for antiquarian first-edition identification (points of issue, number-line decoding, publisher rules over a CC-BY, DOI-cited dataset of 6,700+ titles / 850+ publishers) and New Mexico book-donation logistics. 12 tools.",
   "license": "MIT",
   "author": "Josh Eldred <jseldred@gmail.com>",

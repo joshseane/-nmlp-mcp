@@ -3,7 +3,7 @@
   "name": "org.newmexicoliteracyproject/nmlp-mcp",
   "title": "New Mexico Literacy Project",
   "description": "Free book-donation pickup logistics and first-edition identification tools for New Mexico.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "websiteUrl": "https://newmexicoliteracyproject.org",
   "remotes": [
     { "type": "streamable-http", "url": "https://newmexicoliteracyproject.org/api/mcp" }

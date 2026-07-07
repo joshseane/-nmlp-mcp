@@ -23,7 +23,7 @@ import {
 
 const NMLP_BASE = "https://newmexicoliteracyproject.org";
 const DATASET_DOI = "10.5281/zenodo.21184548"; // Canonical First-Edition Points of Issue (concept DOI, CC BY 4.0)
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 
 // --- first-edition identification helpers (wrap the checker index + shards) ---
 function feNorm(s) { return (s || "").toLowerCase().replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]/g, ""); }
@@ -208,6 +208,18 @@ const TOOLS = [
       required: ["identifier"]
     }
   }
+,
+  {
+    name: "nmlp_vinyl_lookup",
+    description: "Identify a vinyl record from the matrix/runout etching in the deadwax (stamper suffixes vary copy to copy, so stable-prefix matching is built in), the label catalog number, or the barcode. Returns artist, album, year, label, catalog number. Backed by NMLP's Discogs-derived vinyl identifier index plus MusicBrainz fallback. Human tool (with a Goldmine-style grading checklist): https://newmexicoliteracyproject.org/vinyl-lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        identifier: { type: "string", description: "The deadwax etching, catalog number, or barcode as read, e.g. 'XSM 156097', 'SD 19129'" }
+      },
+      required: ["identifier"]
+    }
+  }
 ];
 
 async function fetchJson(url, opts = {}) {
@@ -219,6 +231,33 @@ async function fetchJson(url, opts = {}) {
 async function callTool(name, args) {
   args = args || {};
   switch (name) {
+    case "nmlp_vinyl_lookup": {
+      const rawV = String(args.identifier || "");
+      const kv = rawV.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 28);
+      let out = null;
+      if (kv.length >= 4) {
+        try { out = await fetchJson(`${NMLP_BASE}/api/vinyl/${encodeURIComponent(kv)}`); if (out && out.error) out = null; } catch (e) { out = null; }
+      }
+      if (!out) {
+        try {
+          const digits = rawV.replace(/[^0-9]/g, "");
+          const q = (digits.length >= 11 && digits.length <= 14) ? `barcode:"${digits}"` : `catno:"${rawV.trim().replace(/"/g, "")}"`;
+          const d2 = await fetchJson(`https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(q)}&fmt=json&limit=3`);
+          const rs = ((d2 && d2.releases) || []).map((rel) => {
+            const li0 = (rel["label-info"] || [])[0] || {};
+            return {
+              artist: (rel["artist-credit"] || []).map((c) => (c.artist ? c.artist.name : c.name || "")).filter(Boolean).join(" & "),
+              title: rel.title, year: (rel.date || "").slice(0, 4),
+              label: li0.label ? li0.label.name : "", catno: li0["catalog-number"] || "",
+            };
+          });
+          if (rs.length) out = { key: kv, matches: rs, source: "MusicBrainz fallback" };
+        } catch (e) {}
+      }
+      if (!out) out = { key: kv, error: "no record found", tip: "Deadwax etchings vary by copy — try just the first block before any dash or stamper letters, or use the catalog number from the spine." };
+      out.tool_page = `${NMLP_BASE}/vinyl-lookup?n=${encodeURIComponent(rawV)}`;
+      return out;
+    }
     case "nmlp_lccn_lookup": {
       const raw = String(args.lccn || "");
       let n = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
