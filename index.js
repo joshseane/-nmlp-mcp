@@ -236,7 +236,7 @@ async function callTool(name, args) {
       const kv = rawV.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 28);
       let out = null;
       if (kv.length >= 4) {
-        try { out = await fetchJson(`${NMLP_BASE}/api/vinyl/${encodeURIComponent(kv)}`); if (out && out.error) out = null; } catch (e) { out = null; }
+        try { out = await fetchJson(`${NMLP_BASE}/api/vinyl/${encodeURIComponent(kv)}`); if (out && (out.error || out.rawResponse || !out.matches)) out = null; } catch (e) { out = null; }
       }
       if (!out) {
         try {
@@ -269,7 +269,7 @@ async function callTool(name, args) {
       else if (ld.length >= 3 && ld.length <= 7) n = lm[1] + ld.slice(0, 2) + ld.slice(2).padStart(6, "0");
       else return { error: "not an LCCN", input: raw };
       let out = null;
-      try { out = await fetchJson(`${NMLP_BASE}/api/lccn/${n}`); if (out && out.error) out = null; } catch (e) { out = null; }
+      try { out = await fetchJson(`${NMLP_BASE}/api/lccn/${n}`); if (out && (out.error || out.rawResponse || !out.title)) out = null; } catch (e) { out = null; }
       if (!out) {
         try {
           const d2 = await fetchJson(`https://openlibrary.org/search.json?q=lccn%3A${n}&fields=title,author_name,first_publish_year,publisher&limit=1`);
@@ -286,7 +286,7 @@ async function callTool(name, args) {
       const key = rawId.toUpperCase().replace(/[^A-Z0-9]/g, "");
       let out = null;
       if (key.length >= 4 && key.length <= 24) {
-        try { out = await fetchJson(`${NMLP_BASE}/api/cd/${key}`); if (out && out.error) out = null; } catch (e) { out = null; }
+        try { out = await fetchJson(`${NMLP_BASE}/api/cd/${key}`); if (out && (out.error || out.rawResponse || !out.matches)) out = null; } catch (e) { out = null; }
       }
       if (!out) {
         try {
