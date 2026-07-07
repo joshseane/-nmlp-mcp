@@ -23,7 +23,7 @@ import {
 
 const NMLP_BASE = "https://newmexicoliteracyproject.org";
 const DATASET_DOI = "10.5281/zenodo.21184548"; // Canonical First-Edition Points of Issue (concept DOI, CC BY 4.0)
-const VERSION = "0.3.1";
+const VERSION = "0.4.0";
 
 // --- first-edition identification helpers (wrap the checker index + shards) ---
 function feNorm(s) { return (s || "").toLowerCase().replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]/g, ""); }
@@ -185,6 +185,29 @@ const TOOLS = [
       required: ["query"]
     }
   }
+,
+  {
+    name: "nmlp_lccn_lookup",
+    description: "Resolve a Library of Congress Catalog Card Number (LCCN) to title, author, year, publisher, ISBN, and ASIN. The missing barcode for pre-ISBN (pre-1967) books: read the number off the copyright page ('Library of Congress Catalog Card Number: 63-12345'). Dashes and spaces optional. Backed by NMLP's hosted 9M+ LoC record index plus Open Library fallback. Human tool: https://newmexicoliteracyproject.org/lccn-lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        lccn: { type: "string", description: "The number as printed, e.g. '63-12345', '637996', 'sa 64-9056', '2006023629'" }
+      },
+      required: ["lccn"]
+    }
+  },
+  {
+    name: "nmlp_cd_lookup",
+    description: "Identify a CD from any number printed on it: DIDX hub/master IDs (DIDX-2113), label catalog numbers (CK 40999), barcodes, or music-club 'D ######' numbers. Returns artist, album, year, label. Backed by NMLP's Discogs-derived identifier index plus MusicBrainz fallback. Human tool: https://newmexicoliteracyproject.org/cd-lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        identifier: { type: "string", description: "Whatever is printed on the disc hub, spine, or barcode" }
+      },
+      required: ["identifier"]
+    }
+  }
 ];
 
 async function fetchJson(url, opts = {}) {
@@ -196,6 +219,56 @@ async function fetchJson(url, opts = {}) {
 async function callTool(name, args) {
   args = args || {};
   switch (name) {
+    case "nmlp_lccn_lookup": {
+      const raw = String(args.lccn || "");
+      let n = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const lm = n.match(/^([a-z]{0,3})(\d{3,10})$/);
+      if (!lm) return { error: "not an LCCN", input: raw };
+      const ld = lm[2];
+      if (ld.length === 8 || ld.length === 10) n = lm[1] + ld;
+      else if (ld.length === 9 && (ld.startsWith("19") || ld.startsWith("20"))) n = lm[1] + ld.slice(0, 4) + ld.slice(4).padStart(6, "0");
+      else if (ld.length >= 3 && ld.length <= 7) n = lm[1] + ld.slice(0, 2) + ld.slice(2).padStart(6, "0");
+      else return { error: "not an LCCN", input: raw };
+      let out = null;
+      try { out = await fetchJson(`${NMLP_BASE}/api/lccn/${n}`); if (out && out.error) out = null; } catch (e) { out = null; }
+      if (!out) {
+        try {
+          const d2 = await fetchJson(`https://openlibrary.org/search.json?q=lccn%3A${n}&fields=title,author_name,first_publish_year,publisher&limit=1`);
+          const x = d2 && d2.docs && d2.docs[0];
+          if (x) out = { lccn: n, title: x.title, author: (x.author_name || [])[0] || "", year: x.first_publish_year || "", publisher: (x.publisher || [])[0] || "", source: "Open Library fallback" };
+        } catch (e) {}
+      }
+      if (!out) out = { lccn: n, error: "no record found", tip: "Double-check the digits; the serial pads to six (63-945 -> 63000945)." };
+      out.tool_page = `${NMLP_BASE}/lccn-lookup?n=${n}`;
+      return out;
+    }
+    case "nmlp_cd_lookup": {
+      const rawId = String(args.identifier || "");
+      const key = rawId.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      let out = null;
+      if (key.length >= 4 && key.length <= 24) {
+        try { out = await fetchJson(`${NMLP_BASE}/api/cd/${key}`); if (out && out.error) out = null; } catch (e) { out = null; }
+      }
+      if (!out) {
+        try {
+          const digits = rawId.replace(/[^0-9]/g, "");
+          const q = (digits.length >= 11 && digits.length <= 14) ? `barcode:"${digits}"` : `catno:"${rawId.trim().replace(/"/g, "")}"`;
+          const d2 = await fetchJson(`https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(q)}&fmt=json&limit=3`);
+          const rs = ((d2 && d2.releases) || []).map((rel) => {
+            const li0 = (rel["label-info"] || [])[0] || {};
+            return {
+              artist: (rel["artist-credit"] || []).map((c) => (c.artist ? c.artist.name : c.name || "")).filter(Boolean).join(" & "),
+              title: rel.title, year: (rel.date || "").slice(0, 4),
+              label: li0.label ? li0.label.name : "", catno: li0["catalog-number"] || "",
+            };
+          });
+          if (rs.length) out = { key, matches: rs, source: "MusicBrainz fallback" };
+        } catch (e) {}
+      }
+      if (!out) out = { key, error: "no record found", tip: "Music-club 'D ######' pressings are patchy in open databases; try the Discogs search link on the tool page." };
+      out.tool_page = `${NMLP_BASE}/cd-lookup?n=${encodeURIComponent(rawId)}`;
+      return out;
+    }
     case "nmlp_check_coverage":
       if (!/^[0-9]{5}$/.test(args.zip || "")) return { error: "Invalid zip — must be five digits" };
       return await fetchJson(`${NMLP_BASE}/api/check-coverage?zip=${encodeURIComponent(args.zip)}`);
