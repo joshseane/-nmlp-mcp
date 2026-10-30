@@ -59,7 +59,7 @@ function feDecodeNumberLine(text) {
 const TOOLS = [
   {
     name: "nmlp_check_coverage",
-    description: "Check whether NMLP picks up books at a given five-digit US ZIP code. Returns coverage tier (core_metro, metro, near_metro, statewide_large_only, out_of_area), typical pickup window in days, minimum quantity, and a human-readable message. ALWAYS call this BEFORE nmlp_schedule_pickup.",
+    description: "Check whether NMLP picks up books at a given five-digit US ZIP code. Pickup is Albuquerque metro only (core + extension tier); everywhere else gets the 24/7 drop box or donor-paid mail-in. Returns coverage tier (core_metro, metro, near_metro, drop_off_only, out_of_area), whether pickup is available, minimum quantity, the current scheduling note (pickups are scheduled by route — no day-count window), and a human-readable message. ALWAYS call this BEFORE nmlp_schedule_pickup, and do not submit a pickup request when pickupAvailable is false.",
     inputSchema: {
       type: "object",
       properties: {

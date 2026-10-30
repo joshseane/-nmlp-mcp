@@ -23,7 +23,7 @@ import {
 
 const NMLP_BASE = "https://newmexicoliteracyproject.org";
 const DATASET_DOI = "10.5281/zenodo.21184548"; // Canonical First-Edition Points of Issue (concept DOI, CC BY 4.0)
-const VERSION = "0.5.0";
+const VERSION = "0.6.1";
 
 // --- first-edition identification helpers (wrap the checker index + shards) ---
 function feNorm(s) { return (s || "").toLowerCase().replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]/g, ""); }
@@ -71,7 +71,7 @@ function feDecodeNumberLine(text) {
 const TOOLS = [
   {
     name: "nmlp_check_coverage",
-    description: "Check whether NMLP picks up books at a given five-digit US ZIP code. Returns coverage tier (core_metro, metro, near_metro, statewide_large_only, out_of_area), typical pickup window in days, minimum quantity, and a human-readable message. ALWAYS call this BEFORE nmlp_schedule_pickup.",
+    description: "Check whether NMLP picks up books at a given five-digit US ZIP code. Pickup is Albuquerque metro only (core + extension tier); everywhere else gets the 24/7 drop box or donor-paid mail-in. Returns coverage tier (core_metro, metro, near_metro, drop_off_only, out_of_area), whether pickup is available, minimum quantity, the current scheduling note (pickups are scheduled by route, with no day-count window), and a human-readable message. ALWAYS call this BEFORE nmlp_schedule_pickup, and do not submit a pickup request when pickupAvailable is false.",
     inputSchema: {
       type: "object",
       properties: {
@@ -82,7 +82,7 @@ const TOOLS = [
   },
   {
     name: "nmlp_schedule_pickup",
-    description: "Submit a real free book pickup request to NMLP. Every submission triggers a real outreach to Josh, the single human operator. NEVER submit speculative or unconsented requests.",
+    description: "Submit a real free book pickup request to NMLP (Albuquerque metro only; pickups are scheduled by route). Every submission triggers a real outreach to Josh, the single human operator. NEVER submit speculative or unconsented requests. Addresses outside the pickup area are recorded but answered with drop-off / mail-in options (pickupAvailable:false).",
     inputSchema: {
       type: "object",
       properties: {
@@ -136,7 +136,7 @@ const TOOLS = [
   },
   {
     name: "nmlp_get_pillar_guides",
-    description: "Get NMLP's pillar guide manifest — 60+ Southwest author/publisher authentication and pricing guides.",
+    description: "Get NMLP's pillar guide manifest: 90+ Southwest author and collectible-book reference guides (first-edition identification, points of issue, provenance).",
     inputSchema: { type: "object", properties: {} }
   },
   {
@@ -188,7 +188,7 @@ const TOOLS = [
 ,
   {
     name: "nmlp_lccn_lookup",
-    description: "Resolve a Library of Congress Catalog Card Number (LCCN) to title, author, year, publisher, ISBN, and ASIN. The missing barcode for pre-ISBN (pre-1967) books: read the number off the copyright page ('Library of Congress Catalog Card Number: 63-12345'). Dashes and spaces optional. Backed by NMLP's hosted 9M+ LoC record index plus Open Library fallback. Human tool: https://newmexicoliteracyproject.org/lccn-lookup",
+    description: "Resolve a Library of Congress Catalog Card Number (LCCN) to title, author, year, publisher, ISBN, and ASIN. The missing barcode for pre-ISBN (pre-1967) books: read the number off the copyright page ('Library of Congress Catalog Card Number: 63-12345'). Dashes and spaces optional. Backed by NMLP's hosted 20M+ LoC + Open Library record index, with live Open Library fallback. Human tool: https://newmexicoliteracyproject.org/lccn-lookup",
     inputSchema: {
       type: "object",
       properties: {
@@ -199,7 +199,7 @@ const TOOLS = [
   },
   {
     name: "nmlp_cd_lookup",
-    description: "Identify a CD from any number printed on it: DIDX hub/master IDs (DIDX-2113), label catalog numbers (CK 40999), barcodes, or music-club 'D ######' numbers. Returns artist, album, year, label. Backed by NMLP's Discogs-derived identifier index plus MusicBrainz fallback. Human tool: https://newmexicoliteracyproject.org/cd-lookup",
+    description: "Identify a CD from a number printed on it: DIDX hub/master IDs (DIDX-2113), label catalog numbers (CK 40999) or barcodes. Music-club 'D ######' numbers are not reliably covered, and a hit on one can be a different album, so check the artist and title against the disc. Returns artist, album, year, label. Backed by NMLP's Discogs-derived identifier index plus MusicBrainz fallback. Human tool: https://newmexicoliteracyproject.org/cd-lookup",
     inputSchema: {
       type: "object",
       properties: {
@@ -220,6 +220,18 @@ const TOOLS = [
       required: ["identifier"]
     }
   }
+,
+  {
+    name: "nmlp_resolve",
+    description: "One Box: resolve ANY physical-media identifier in one call — auto-detects the type (Library of Congress LCCN, ISBN-10/13, CD DIDX hub code, label catalog number, UPC/EAN barcode, vinyl matrix/runout etching) and returns ranked typed candidates across NMLP's 48M-record indexes (20.9M LCCN + 8.7M CD + 19M vinyl). ISBN input returns the exact Amazon listing link (ASIN=ISBN-10), never a title search. Misses return Attested Absence: exactly which indexes were checked at what dataset version, so 'not found' is usable evidence. Use this when you don't know what kind of number you have; use the specialized lookups when you do. Identification only — does NOT appraise or value items; NMLP never buys books. Human tool: https://newmexicoliteracyproject.org/lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        identifier: { type: "string", description: "Any identifier as printed/etched: '63-12345', 'DIDX 2113', 'CK 40999', a 12/13-digit barcode, an ISBN, or a deadwax matrix string. Dashes, spaces, case ignored." }
+      },
+      required: ["identifier"]
+    }
+  }
 ];
 
 async function fetchJson(url, opts = {}) {
@@ -231,6 +243,14 @@ async function fetchJson(url, opts = {}) {
 async function callTool(name, args) {
   args = args || {};
   switch (name) {
+    case "nmlp_resolve": {
+      const rawR = String(args.identifier || "").trim();
+      if (rawR.length < 3) return { error: "identifier too short", input: rawR };
+      const out = await fetchJson(`${NMLP_BASE}/api/resolve/${encodeURIComponent(rawR)}`);
+      if (!out || out.rawResponse) return { error: "resolver unavailable", tip: "Try the specialized tools: nmlp_lccn_lookup, nmlp_cd_lookup, nmlp_vinyl_lookup." };
+      out.tool_page = `${NMLP_BASE}/lookup`;
+      return out;
+    }
     case "nmlp_vinyl_lookup": {
       const rawV = String(args.identifier || "");
       const kv = rawV.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 28);

@@ -21,7 +21,7 @@ The two share one codebase and one dataset: `index.js` is the local stdio server
 | `nmlp_lookup_publisher_rules` | publisher → how that house's first editions are identified, by era |
 | `nmlp_search_titles` | fuzzy title/author search over the dataset |
 
-**Book-donation logistics** for Albuquerque / New Mexico:
+**Book-donation logistics** for the Albuquerque metro:
 
 | Tool | What it does |
 |---|---|
@@ -101,4 +101,4 @@ Both wrap the site's public open-data APIs (`/api/checker-*.json`, `/api/points.
 
 ---
 
-The New Mexico Literacy Project is a for-profit book, clothing, and gear donation-and-resale operation in Albuquerque, NM. Donations are not tax-deductible.
+The New Mexico Literacy Project (NMLP) is a for-profit book reuse operation in Albuquerque, NM. Free in-home book pickup across the Albuquerque metro, scheduled by route; books in any condition, any quantity. Donations are not tax-deductible.
